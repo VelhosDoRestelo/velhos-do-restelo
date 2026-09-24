@@ -5,11 +5,23 @@ import Footer from '../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 import Parser from 'rss-parser';
 
-// 1. Initialize the parser
 const parser = new Parser();
+let feed = { items: [] };
+let fetchError = null;
 
-// 2. Fetch the data from Riverside at build time
-const feed = await parser.parseURL('https://api.riverside.com/hosting/2Aa5Dpi9.rss');
+try {
+	// REQUIREMENT: Paste your actual Riverside RSS feed URL inside these quotes.
+	const rssUrl = 'https://api.riverside.com/hosting/2Aa5Dpi9.rss';
+	
+	if (rssUrl !== 'YOUR_RIVERSIDE_RSS_URL_HERE') {
+		feed = await parser.parseURL(rssUrl);
+	} else {
+		fetchError = "System Warning: Riverside RSS URL has not been configured.";
+	}
+} catch (error) {
+	console.error("RSS Fetch Error:", error);
+	fetchError = "System Warning: Failed to fetch Riverside backend data.";
+}
 ---
 
 <!doctype html>
@@ -23,27 +35,34 @@ const feed = await parser.parseURL('https://api.riverside.com/hosting/2Aa5Dpi9.r
 			<section>
 				<h1>Latest Episodes</h1>
 				<ul>
-					{
+					{fetchError ? (
+						<p style="color: red;">{fetchError}</p>
+					) : feed.items.length === 0 ? (
+						<p>Podcast feed is online, but no episodes have been published yet.</p>
+					) : (
 						feed.items.map((episode) => (
 							<li style="margin-bottom: 2rem;">
-								<a href={episode.link}>
-									<h4 class="title">{episode.title}</h4>
+								<a href={episode?.link || '#'}>
+									<h4 class="title">{episode?.title || 'Untitled Episode'}</h4>
 								</a>
 								<p class="date">
-									{new Date(episode.pubDate).toLocaleDateString('en-us', {
+									{episode?.pubDate ? new Date(episode.pubDate).toLocaleDateString('en-us', {
 										year: 'numeric',
 										month: 'short',
 										day: 'numeric',
-									})}
+									}) : 'Date unknown'}
 								</p>
-                                <!-- The Audio Player -->
-                                <audio controls style="width: 100%; margin-top: 0.5rem;">
-                                    <source src={episode.enclosure.url} type="audio/mpeg" />
-                                    Your browser does not support the audio element.
-                                </audio>
+								
+								{/* Safe rendering: Only load the audio player if the enclosure data actually exists */}
+								{episode?.enclosure?.url && (
+									<audio controls style="width: 100%; margin-top: 0.5rem;">
+										<source src={episode.enclosure.url} type="audio/mpeg" />
+										Your browser does not support the audio element.
+									</audio>
+								)}
 							</li>
 						))
-					}
+					)}
 				</ul>
 			</section>
 		</main>
